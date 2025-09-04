@@ -16,7 +16,7 @@ Shadowverse: Worlds Beyondの対戦結果を記録し、Googleスプレッドシ
 
 1.  **APKファイルのダウンロード**
     * このGitHubリポジトリの**[Releasesページ](https://github.com/fl1r/svwbrecord/releases)**にアクセスします。
-    * 最新バージョンの`app-prod-release.apk`ファイルをダウンロードします。
+    * 最新バージョンの`svwbrecord.apk`ファイルをダウンロードします。
 
 2.  **「不明なアプリのインストール」を許可**
     * Androidはセキュリティのため、Playストア以外からのアプリのインストールを標準でブロックしています。一時的にこの設定を許可する必要があります。
@@ -27,7 +27,7 @@ Shadowverse: Worlds Beyondの対戦結果を記録し、Googleスプレッドシ
     
 
 3.  **アプリのインストール**
-    * ダウンロードした`app-prod-release.apk`ファイルをタップします。
+    * ダウンロードした`svwbrecord.apk`ファイルをタップします。
     * インストール確認画面が表示されたら、「インストール」をタップします。
 
 ---
