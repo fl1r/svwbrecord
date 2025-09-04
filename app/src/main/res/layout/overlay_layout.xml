@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#AAFFFFFF"
+    android:padding="16dp">
+
+    <!-- 自分のデッキ -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="自分のデッキ:"
+        android:textSize="12sp"/>
+    <!-- ID変更: my_class_spinner -> my_deck_spinner -->
+    <Spinner
+        android:id="@+id/my_deck_spinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- 相手のデッキ -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="相手のデッキ:"
+        android:textSize="12sp"
+        android:layout_marginTop="8dp"/>
+    <!-- ID変更: opponent_class_spinner -> opponent_deck_spinner -->
+    <Spinner
+        android:id="@+id/opponent_deck_spinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- 先攻後攻選択 RadioGroup -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="先攻後攻:"
+        android:textSize="12sp"
+        android:layout_marginTop="8dp"/>
+    <RadioGroup
+        android:id="@+id/turn_radio_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
+
+        <RadioButton
+            android:id="@+id/radio_first_turn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="先攻" />
+
+        <RadioButton
+            android:id="@+id/radio_second_turn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="後攻" />
+    </RadioGroup>
+
+    <!-- 相手グループ選択 Spinner -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="相手グループ:"
+        android:textSize="12sp"
+        android:layout_marginTop="8dp"/>
+    <Spinner
+        android:id="@+id/opponent_rank_spinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- 勝ち負け選択 RadioGroup -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="勝敗:"
+        android:textSize="12sp"
+        android:layout_marginTop="8dp"/>
+    <RadioGroup
+        android:id="@+id/win_loss_radio_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <RadioButton
+            android:id="@+id/radio_win"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="勝ち" />
+
+        <RadioButton
+            android:id="@+id/radio_loss"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="負け" />
+    </RadioGroup>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end">
+
+        <Button
+            android:id="@+id/close_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:text="閉じる" />
+
+        <Button
+            android:id="@+id/record_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="記録" />
+    </LinearLayout>
+
+</LinearLayout>
