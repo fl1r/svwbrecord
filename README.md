@@ -7,7 +7,7 @@ Shadowverse: Worlds Beyondの対戦結果を記録するための非公式Androi
 ## 技術スタック
 
 * **言語**: Java
-* **プラットフォーム**: Android (minSdk 33)
+* **プラットフォーム**: Android (minSdk 34)
 * **主なAPI**:
     * Google Sheets API v4
     * Google Sign-In for Android
@@ -15,6 +15,7 @@ Shadowverse: Worlds Beyondの対戦結果を記録するための非公式Androi
     * Foreground Service
     * WindowManager (Overlay)
     * UsageStatsManager
+    * Activity Result API
 
 ## ビルド方法
 

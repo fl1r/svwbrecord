@@ -499,10 +499,6 @@ public class OverlayService extends Service {
             floatingButtonIntent.putExtra(MainActivity.KEY_SIGNED_IN_ACCOUNT_NAME, signedInAccountName);
         }
         startService(floatingButtonIntent);
-
-        if (!executorService.isShutdown()) {
-            executorService.shutdown();
-        }
     }
 
     @Override

@@ -6,19 +6,19 @@ plugins {
 
 android {
     namespace = "com.ppp.svwbrecord"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.ppp.svwbrecord"
-        minSdk = 33
+        minSdk = 34
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0"
+        versionName = "01.00.01"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // コマンドラインから 'target' プロパティを取得。指定がなければ "self" をデフォルトにする
-        val target = project.findProperty("target")?.toString() ?: "self"
+        val target = project.findProperty("target").toString()
 
         // 'target' の値に応じて、使用するプロパティ名を決定
         val spreadsheetIdProperty = if (target == "friends") {
@@ -28,8 +28,8 @@ android {
         }
 
         // 決定したプロパティ名で gradle.properties からIDを取得
-        val spreadsheetId = project.findProperty(spreadsheetIdProperty) ?: "YOUR_DEFAULT_ID"
-        val sharedPassword = project.findProperty("SHARED_PASSWORD") ?: "DEF_PASSWORD"
+        val spreadsheetId = project.findProperty(spreadsheetIdProperty)
+        val sharedPassword = project.findProperty("SHARED_PASSWORD")
 
 
         // BuildConfigにスプレッドシートIDを設定
