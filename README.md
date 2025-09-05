@@ -2,7 +2,7 @@
 
 Shadowverse: Worlds Beyondの対戦結果を記録するための非公式Androidツールです。
 
-**※ 一般利用者向けのインストール方法と使い方は、[こちらのWikiページ](https://github.com/fl1r/svwbrecord/wiki)を参照してください。**
+**※ 一般利用者向けのインストール方法と使い方は、[こちらのWikiページ](https://github.com/fl1r/svwbrecord/インストールと使い方)を参照してください。**
 
 ## 技術スタック
 
