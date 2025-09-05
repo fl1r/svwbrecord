@@ -23,5 +23,4 @@ Shadowverse: Worlds Beyondの対戦結果を記録するための非公式Androi
     * `MY_SPREADSHEET_ID_FOR_FRIENDS`: 配布用のスプレッドシートID
 
 2.  コマンドラインから以下のコマンドを実行します。
-    * **自分用ビルド**: `.\gradlew installDebug`
-    * **友人用ビルド**: `.\gradlew installDebug -Ptarget=friends`
+    * **開発用ビルド**: `.\gradlew installDebug`
