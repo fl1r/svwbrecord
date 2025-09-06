@@ -355,7 +355,11 @@ public class OverlayService extends Service {
 
     private void collectInputDataAndRecord() {
         Log.d(TAG, "Collecting input data and attempting to record with OAuth...");
-
+        
+        if (recordButton != null) {
+            recordButton.setEnabled(false);
+        }
+        
         if (credential.getSelectedAccountName() == null) {
             mainThreadHandler.post(() -> Toast.makeText(OverlayService.this, "Googleアカウント認証情報がありません。", Toast.LENGTH_LONG).show());
             Log.e(TAG, "Google Account not set in credential for OverlayService. Aborting record.");
@@ -437,12 +441,12 @@ public class OverlayService extends Service {
                 ValueRange body = new ValueRange().setValues(Arrays.asList(rowData));
 
                 sheetsService.spreadsheets().values()
-                        .update(SPREADSHEET_ID, updateRange, body) // appendからupdateに変更
+                        .update(SPREADSHEET_ID, updateRange, body)
                         .setValueInputOption("USER_ENTERED")
                         .execute();
 
                 mainThreadHandler.post(() -> {
-                    Toast.makeText(OverlayService.this, "対戦記録を保存しました！", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(), "対戦記録を保存しました！", Toast.LENGTH_SHORT).show();
                     Log.d(TAG, "Match record successfully saved to Google Sheets using OAuth.");
                     clearDraftState();
                     stopSelf();
@@ -450,12 +454,14 @@ public class OverlayService extends Service {
 
             } catch (IOException e) {
                 Log.e(TAG, "IOException saving match record to spreadsheet with OAuth.", e);
-                mainThreadHandler.post(() -> Toast.makeText(OverlayService.this, "記録保存IOエラー: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                mainThreadHandler.post(() -> Toast.makeText(getApplicationContext(), "記録保存IOエラー: " + e.getMessage(), Toast.LENGTH_LONG).show());
             } catch (Exception e) { 
                 Log.e(TAG, "General Exception saving match record to spreadsheet with OAuth.", e);
-                mainThreadHandler.post(() -> Toast.makeText(OverlayService.this, "記録保存エラー(認証等): " + e.getMessage(), Toast.LENGTH_LONG).show());
+                mainThreadHandler.post(() -> Toast.makeText(getApplicationContext(), "記録保存エラー(認証等): " + e.getMessage(), Toast.LENGTH_LONG).show());
             }
         });
+
+        stopSelf();
     }
 
     private void clearDraftState() {
@@ -492,10 +498,6 @@ public class OverlayService extends Service {
             floatingButtonIntent.putExtra(MainActivity.KEY_SIGNED_IN_ACCOUNT_NAME, signedInAccountName);
         }
         startService(floatingButtonIntent);
-
-        if (!executorService.isShutdown()) {
-            executorService.shutdown();
-        }
     }
 
     @Override
