@@ -280,12 +280,11 @@ public class OverlayService extends Service {
     private void validateInputs() {
         if (recordButton == null) return;
 
-        boolean isOpponentRankSelected = opponentRankSpinner.getSelectedItemPosition() < opponentRankAdapter.getCount() - 1; // 最後のプロンプト以外
         boolean isTurnSelected = turnRadioGroup.getCheckedRadioButtonId() != -1;
         boolean isWinLossSelected = winLossRadioGroup.getCheckedRadioButtonId() != -1;
 
         // 全ての条件が満たされた場合のみボタンを有効化
-        recordButton.setEnabled(isOpponentRankSelected && isTurnSelected && isWinLossSelected);
+        recordButton.setEnabled(isTurnSelected && isWinLossSelected);
     }
 
     private void loadDeckNames() {
@@ -349,7 +348,7 @@ public class OverlayService extends Service {
     private void loadOpponentRanks() {
         Log.d(TAG, "Loading opponent ranks...");
         opponentRankList.clear();
-        opponentRankList.addAll(Arrays.asList("BEYOND", "ULTIMATE", "EPIC", "EPIC未満", "ダイヤモンド", "サファイア", "ルビー", "(ランク選択)"));
+        opponentRankList.addAll(Arrays.asList("BEYOND", "LEGEND", "ULTIMATE", "EPIC", "EPIC未満", "ダイヤモンド", "サファイア", "ルビー", "(ランク選択)"));
         opponentRankAdapter.notifyDataSetChanged();
         Log.d(TAG, "Opponent ranks loaded. Adapter notified.");
     }
