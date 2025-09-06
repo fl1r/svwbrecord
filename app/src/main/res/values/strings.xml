@@ -1,3 +1,13 @@
 <resources>
     <string name="app_name">svwbrecord</string>
+
+    <string name="notification_channel_name">監視サービス</string>
+    <string name="notification_channel_description">ゲームの起動を監視します</string>
+
+    <string name="notification_title_waiting">戦績記録サービス</string>
+    <string name="notification_text_waiting">待機中…</string>
+
+    <string name="notification_title_game_active">シャドウバースWB プレイ中</string>
+    <string name="notification_text_game_active">タップして戦績を記録</string>
+
 </resources>

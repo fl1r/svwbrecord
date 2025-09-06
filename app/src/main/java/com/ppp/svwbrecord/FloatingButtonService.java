@@ -29,14 +29,14 @@ public class FloatingButtonService extends Service {
     private static final String TAG = "FloatingButtonService"; // ログ用タグ
 
     private WindowManager windowManager;
-    private View floatingButtonView; // これは FrameLayout 全体
+    private View floatingButtonView;
     private WindowManager.LayoutParams params;
     private Button simpleButton; // 操作対象のボタン
 
     private static final int FLOATING_BUTTON_NOTIFICATION_ID = 3;
     private static final String FLOATING_BUTTON_CHANNEL_ID = "FloatingButtonChannel";
 
-    private Handler longPressHandler = new Handler(Looper.getMainLooper());
+    private final Handler longPressHandler = new Handler(Looper.getMainLooper());
     private Runnable longPressRunnable;
     private boolean isInDragMode = false;
     private boolean wasDraggedAfterLongPress = false; // 長押し後にドラッグされたか
@@ -219,17 +219,15 @@ public class FloatingButtonService extends Service {
     }
 
     private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    FLOATING_BUTTON_CHANNEL_ID,
-                    "フローティングボタン サービス",
-                    NotificationManager.IMPORTANCE_LOW
-            );
-            channel.setDescription("フローティングボタンの表示状態を通知します");
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
-            }
+        NotificationChannel channel = new NotificationChannel(
+                FLOATING_BUTTON_CHANNEL_ID,
+                "フローティングボタン サービス",
+                NotificationManager.IMPORTANCE_LOW
+        );
+        channel.setDescription("フローティングボタンの表示状態を通知します");
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (manager != null) {
+            manager.createNotificationChannel(channel);
         }
     }
 

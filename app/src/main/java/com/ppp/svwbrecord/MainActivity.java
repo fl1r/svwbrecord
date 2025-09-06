@@ -1,13 +1,14 @@
 package com.ppp.svwbrecord;
 
 import android.Manifest;
-import android.accounts.Account;
+import android.app.Activity;
+import android.app.ActivityManager;
+import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -21,10 +22,10 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
@@ -36,7 +37,7 @@ import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.api.client.http.HttpTransport;
-import com.google.api.client.http.javanet.NetHttpTransport; // Ensure this is imported
+import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
@@ -68,10 +69,6 @@ public class MainActivity extends AppCompatActivity {
     private static final String SHEET_NAME_FOR_SORTING = "デッキ別戦績";
     private static final String SORTING_COLUMN = "A";
 
-    private static final int REQUEST_OVERLAY_PERMISSION = 101;
-    private static final int REQUEST_POST_NOTIFICATIONS_PERMISSION = 102;
-    private static final int RC_SIGN_IN = 9001;
-
     private Spinner playerNameSpinner;
     private ArrayAdapter<String> playerNameAdapter;
     private List<String> playerNamesList = new ArrayList<>();
@@ -93,6 +90,9 @@ public class MainActivity extends AppCompatActivity {
 
     private GoogleSignInClient mGoogleSignInClient;
     private GoogleAccountCredential credential;
+    private ActivityResultLauncher<Intent> signInLauncher;
+    private ActivityResultLauncher<Intent> overlayPermissionLauncher;
+    private ActivityResultLauncher<String> requestPermissionLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -122,6 +122,46 @@ public class MainActivity extends AppCompatActivity {
                 .build();
         mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
 
+        signInLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> { // 結果を受け取るコールバック
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        // サインイン成功時の処理
+                        Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(result.getData());
+                        handleSignInResult(task);
+                    } else {
+                        // サインインがキャンセルされた、または失敗した場合の処理
+                        Log.w(TAG, "Sign-in failed or cancelled. Result code: " + result.getResultCode());
+                        Toast.makeText(this, "サインインがキャンセルされました", Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
+
+        overlayPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (Settings.canDrawOverlays(this)) {
+                        Toast.makeText(this, "オーバーレイ権限が付与されました。再度「設定を保存」を押してください。", Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(this, "フローティングボタンの表示権限が許可されませんでした。", Toast.LENGTH_LONG).show();
+                    }
+                }
+        );
+
+        requestPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                isGranted -> { // ここが結果を受け取るコールバック
+                    if (isGranted) {
+                        Log.d(TAG, "Notification permission granted.");
+                        // 権限が許可されたので、次の権限チェック or サービス開始に進む
+                        checkPermissionsAndStartServices();
+                    } else {
+                        Toast.makeText(this, "通知の権限が許可されませんでした。", Toast.LENGTH_LONG).show();
+                        // 拒否された場合でも、フローティングモードなら動かせるので次のチェックに進む
+                        checkPermissionsAndStartServices();
+                    }
+                });
+
         signInButton.setOnClickListener(v -> signIn());
         signOutButton.setOnClickListener(v -> signOut());
 
@@ -133,18 +173,29 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             saveSettings();
-            checkPermissionsAndStartServices();
+            if (!hasUsageStatsPermission()) {
+                Toast.makeText(this, "「使用状況へのアクセス」を許可してください", Toast.LENGTH_LONG).show();
+                // 設定画面へ誘導
+                startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+                return; // 権限がないのでサービスは開始しない
+            }
+
+            if (!GameWatchService.isRunning) {
+                checkPermissionsAndStartServices();
+            } else {
+                Toast.makeText(this, "サービスは既に実行中です", Toast.LENGTH_SHORT).show();
+                Log.d(TAG, "GameWatchService is already running. Not starting again.");
+            }
         });
 
         forceStopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // 1. 全てのサービスを停止する
-                stopService(new Intent(MainActivity.this, GameWatchService.class));
-                stopService(new Intent(MainActivity.this, FloatingButtonService.class));
-                stopService(new Intent(MainActivity.this, OverlayService.class));
+                // 停止アクションを指定してサービスを止める
+                Intent gameWatchServiceIntent = new Intent(MainActivity.this, GameWatchService.class);
+                gameWatchServiceIntent.setAction(GameWatchService.ACTION_STOP_MONITORING);
+                startService(gameWatchServiceIntent);
 
-                // 2. アプリのタスクを完全に終了させる
                 finishAndRemoveTask();
             }
         });
@@ -180,7 +231,7 @@ public class MainActivity extends AppCompatActivity {
     private void signIn() {
         Log.d(TAG, "Attempting to sign in.");
         Intent signInIntent = mGoogleSignInClient.getSignInIntent();
-        startActivityForResult(signInIntent, RC_SIGN_IN);
+        signInLauncher.launch(signInIntent);
     }
 
     private void signOut() {
@@ -401,86 +452,35 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkPermissionsAndStartServices() {
-        Intent gameWatchServiceIntent = new Intent(MainActivity.this, GameWatchService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(gameWatchServiceIntent);
-        } else {
-            startService(gameWatchServiceIntent);
-        }
-        Log.d(TAG, "GameWatchService started from checkPermissionsAndStartServices.");
+        // --- 先に権限チェックを行う ---
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_POST_NOTIFICATIONS_PERMISSION);
-                return; 
-            }
-        }
-        proceedWithServiceStartup();
-    }
-
-    private void proceedWithServiceStartup() {
-        String displayMode = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .getString(KEY_DISPLAY_MODE, MODE_NOTIFICATION);
-        Log.d(TAG, "proceedWithServiceStartup: Display mode = " + displayMode);
-
-        if (MODE_FLOATING_BUTTON.equals(displayMode)) {
-            startFloatingButtonService();
-        } else {
-            stopFloatingButtonService();
-            Toast.makeText(MainActivity.this, "設定を保存しました。通知モードです。", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void startFloatingButtonService() {
-        if (GoogleSignIn.getLastSignedInAccount(this) == null) {
-            Toast.makeText(this, "フローティングボタンを使用するにはGoogleアカウントでサインインしてください", Toast.LENGTH_LONG).show();
+        // 1. 通知権限のチェック (Android 13+)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+            // 権限要求をしたので、一旦ここで処理を中断
             return;
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()));
-            startActivityForResult(intent, REQUEST_OVERLAY_PERMISSION);
+        // 2. オーバーレイ権限のチェック (フローティングボタンモード選択時)
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String displayMode = prefs.getString(KEY_DISPLAY_MODE, MODE_NOTIFICATION);
+        if (MODE_FLOATING_BUTTON.equals(displayMode) && !Settings.canDrawOverlays(this)) {
+            overlayPermissionLauncher.launch(
+                    new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()))
+            );
             Toast.makeText(this, "フローティングボタンを表示するには、他のアプリの上に表示する権限を許可してください。", Toast.LENGTH_LONG).show();
-        } else {
-            Intent serviceIntent = new Intent(this, FloatingButtonService.class);
-            GoogleSignInAccount account = GoogleSignIn.getLastSignedInAccount(this);
-            if (account != null && account.getEmail() != null) {
-                 serviceIntent.putExtra(KEY_SIGNED_IN_ACCOUNT_NAME, account.getEmail());
-                 ContextCompat.startForegroundService(this, serviceIntent);
-                 Log.d(TAG, "FloatingButtonService started or already running with account: " + account.getEmail());
-                 Toast.makeText(MainActivity.this, "設定を保存しました。フローティングボタンモードです。", Toast.LENGTH_SHORT).show();
-            } else {
-                Log.w(TAG, "Signed in account email is null, cannot pass to FloatingButtonService");
-                Toast.makeText(this, "サインインアカウント情報が取得できませんでした。", Toast.LENGTH_SHORT).show();
-            }
+            // 権限要求をしたので、一旦ここで処理を中断
+            return;
         }
-    }
 
-    private void stopFloatingButtonService() {
-        Intent serviceIntent = new Intent(this, FloatingButtonService.class);
-        stopService(serviceIntent);
-        Log.d(TAG, "FloatingButtonService stopped.");
-    }
+        // --- 全ての権限が許可されている場合のみ、サービスを開始 ---
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
+        Intent gameWatchServiceIntent = new Intent(this, GameWatchService.class);
+        gameWatchServiceIntent.setAction(GameWatchService.ACTION_START_MONITORING);
+        startForegroundService(gameWatchServiceIntent);
 
-        if (requestCode == RC_SIGN_IN) {
-            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
-            handleSignInResult(task);
-        } else if (requestCode == REQUEST_OVERLAY_PERMISSION) {
-            String displayMode = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                    .getString(KEY_DISPLAY_MODE, MODE_NOTIFICATION);
-            if (MODE_FLOATING_BUTTON.equals(displayMode)) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
-                    Toast.makeText(this, "オーバーレイ権限が付与されました。", Toast.LENGTH_SHORT).show();
-                    startFloatingButtonService();
-                } else {
-                    Toast.makeText(this, "フローティングボタンの表示権限が許可されませんでした。", Toast.LENGTH_LONG).show();
-                }
-            }
-        }
+        Toast.makeText(this, "設定を保存し、監視を開始しました。", Toast.LENGTH_SHORT).show();
+        Log.d(TAG, "All permissions granted. GameWatchService start command sent.");
     }
 
     private void handleSignInResult(Task<GoogleSignInAccount> completedTask) {
@@ -502,16 +502,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_POST_NOTIFICATIONS_PERMISSION) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                proceedWithServiceStartup();
-            } else {
-                Toast.makeText(this, "通知の権限が許可されませんでした。", Toast.LENGTH_LONG).show();
-                proceedWithServiceStartup(); 
-            }
-        }
+    private boolean hasUsageStatsPermission() {
+        AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
+        int mode = appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(),
+                getPackageName());
+        return mode == AppOpsManager.MODE_ALLOWED;
     }
 }
