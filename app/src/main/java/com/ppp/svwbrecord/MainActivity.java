@@ -118,7 +118,7 @@ public class MainActivity extends AppCompatActivity {
 
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestEmail()
-                .requestScopes(new com.google.android.gms.common.api.Scope(SheetsScopes.SPREADSHEETS))
+                .requestScopes(new com.google.android.gms.common.api.Scope(SheetsScopes.DRIVE_FILE))
                 .build();
         mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
 
