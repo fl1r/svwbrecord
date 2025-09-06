@@ -36,6 +36,7 @@ import com.google.android.gms.common.SignInButton;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
+import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
@@ -93,6 +94,7 @@ public class MainActivity extends AppCompatActivity {
     private ActivityResultLauncher<Intent> signInLauncher;
     private ActivityResultLauncher<Intent> overlayPermissionLauncher;
     private ActivityResultLauncher<String> requestPermissionLauncher;
+    private ActivityResultLauncher<Intent> userRecoverableAuthLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -118,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
 
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestEmail()
-                .requestScopes(new com.google.android.gms.common.api.Scope(SheetsScopes.SPREADSHEETS))
+                .requestScopes(new com.google.android.gms.common.api.Scope(SheetsScopes.DRIVE_FILE))
                 .build();
         mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
 
@@ -161,6 +163,21 @@ public class MainActivity extends AppCompatActivity {
                         checkPermissionsAndStartServices();
                     }
                 });
+
+        userRecoverableAuthLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        // ユーザーが承認した場合、再度データ読み込みを試みる
+                        Log.d(TAG, "User recovered from auth exception. Retrying to load data.");
+                        loadSpreadsheetData();
+                    } else {
+                        // ユーザーがキャンセルした場合
+                        Log.w(TAG, "User did not recover from auth exception.");
+                        Toast.makeText(this, "スプレッドシートへのアクセスが承認されませんでした。", Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
 
         signInButton.setOnClickListener(v -> signIn());
         signOutButton.setOnClickListener(v -> signOut());
@@ -316,8 +333,16 @@ public class MainActivity extends AppCompatActivity {
                 });
 
             } catch (Exception e) {
+                if (e instanceof UserRecoverableAuthIOException) {
+                // 再承認が必要な例外の場合
+                Log.w(TAG, "UserRecoverableAuthIOException caught. Needs user consent.");
+                // ユーザーに再承認を促す画面を起動
+                userRecoverableAuthLauncher.launch(((UserRecoverableAuthIOException) e).getIntent());
+            } else {
+                // その他の例外の場合
                 Log.e(TAG, "Error fetching spreadsheet data with OAuth", e);
-                mainThreadHandler.post(() -> Toast.makeText(MainActivity.this, "データ読み込みエラー(認証確認): " + e.getMessage(), Toast.LENGTH_LONG).show());
+                mainThreadHandler.post(() -> Toast.makeText(MainActivity.this, "データ読み込みエラー: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            }
             }
         });
     }
