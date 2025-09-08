@@ -17,11 +17,10 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // コマンドラインから 'target' プロパティを取得。指定がなければ "self" をデフォルトにする
-        val target = project.findProperty("target").toString()
+        // targetプロパティを安全に取得
+        val targetProperty = project.findProperty("target")
 
-        // 'target' の値に応じて、使用するプロパティ名を決定
-        val spreadsheetIdProperty = if (target == "friends") {
+        val spreadsheetIdProperty = if (targetProperty == "friends") {
             "MY_SPREADSHEET_ID_FOR_FRIENDS"
         } else {
             "MY_SPREADSHEET_ID_FOR_SELF"
