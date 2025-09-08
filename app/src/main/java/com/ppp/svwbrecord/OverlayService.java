@@ -490,14 +490,28 @@ public class OverlayService extends Service {
             }
             overlayView = null;
         }
-        Log.d(TAG, "Requesting to restore FloatingButtonService.");
-        // GameWatchServiceを再起動する代わりに、FloatingButtonServiceを直接再起動する
-        Intent floatingButtonIntent = new Intent(this, FloatingButtonService.class);
-        // アカウント情報を忘れずに渡す
-        if (signedInAccountName != null) {
-            floatingButtonIntent.putExtra(MainActivity.KEY_SIGNED_IN_ACCOUNT_NAME, signedInAccountName);
+
+        Log.d(TAG, "Requesting GameWatchService to refresh UI state.");
+        // GameWatchServiceにUIの更新を依頼する
+        Intent refreshIntent = new Intent(this, GameWatchService.class);
+        refreshIntent.setAction(GameWatchService.ACTION_REFRESH_UI);
+        startService(refreshIntent);
+
+        // 1. 現在の設定を SharedPreferences から読み込む
+        SharedPreferences prefs = getSharedPreferences(MainActivity.PREFS_NAME, Context.MODE_PRIVATE);
+        String displayMode = prefs.getString(MainActivity.KEY_DISPLAY_MODE, MainActivity.MODE_NOTIFICATION);
+
+        // 2. フローティングボタンモードの場合のみ、サービスを再起動する
+        if (MainActivity.MODE_FLOATING_BUTTON.equals(displayMode)) {
+            Log.d(TAG, "Floating button mode detected. Requesting to restore FloatingButtonService.");
+            Intent floatingButtonIntent = new Intent(this, FloatingButtonService.class);
+            if (signedInAccountName != null) {
+                floatingButtonIntent.putExtra(MainActivity.KEY_SIGNED_IN_ACCOUNT_NAME, signedInAccountName);
+            }
+            startService(floatingButtonIntent);
+        } else {
+            Log.d(TAG, "Notification mode detected. Not restoring FloatingButtonService.");
         }
-        startService(floatingButtonIntent);
     }
 
     @Override

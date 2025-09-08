@@ -27,6 +27,7 @@ public class GameWatchService extends Service {
     // --- Public Constants ---
     public static final String ACTION_START_MONITORING = "com.ppp.svwbrecord.ACTION_START_MONITORING";
     public static final String ACTION_STOP_MONITORING = "com.ppp.svwbrecord.ACTION_STOP_MONITORING";
+    public static final String ACTION_REFRESH_UI = "com.ppp.svwbrecord.ACTION_REFRESH_UI";
     public static boolean isRunning = false;
 
     // --- Private Constants ---
@@ -74,6 +75,10 @@ public class GameWatchService extends Service {
             } else if (ACTION_STOP_MONITORING.equals(action)) {
                 Log.d(TAG, "Received STOP_MONITORING action.");
                 stopSelf();
+            } else if (ACTION_REFRESH_UI.equals(action)) {
+                Log.d(TAG, "Received REFRESH_UI action.");
+                // isUiVisibleを一度falseにして、次のチェックでUIが再表示されるようにする
+                isUiVisible = false;
             }
         }
         return START_STICKY;
