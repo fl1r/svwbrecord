@@ -261,8 +261,12 @@ public class OverlayService extends Service {
         SharedPreferences draftPrefs = getSharedPreferences(PREFS_DRAFT_NAME, Context.MODE_PRIVATE);
 
         // 各スピナーの選択位置を復元
-        myDeckSpinner.setSelection(draftPrefs.getInt(KEY_DRAFT_MY_DECK_POS, 0));
-        opponentDeckSpinner.setSelection(draftPrefs.getInt(KEY_DRAFT_OPPONENT_DECK_POS, 0));
+        if (draftPrefs.contains(KEY_DRAFT_MY_DECK_POS)) {
+            myDeckSpinner.setSelection(draftPrefs.getInt(KEY_DRAFT_MY_DECK_POS, 0));
+        }
+        if (draftPrefs.contains(KEY_DRAFT_OPPONENT_DECK_POS)) {
+            opponentDeckSpinner.setSelection(draftPrefs.getInt(KEY_DRAFT_OPPONENT_DECK_POS, 0));
+        }
         opponentRankSpinner.setSelection(draftPrefs.getInt(KEY_DRAFT_OPPONENT_RANK_POS, opponentRankAdapter.getCount() - 1));
 
         // 各ラジオボタンの選択状態を復元 (-1は未選択)
