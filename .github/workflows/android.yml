@@ -1,0 +1,108 @@
+name: Android Build & Release Workflow
+
+# ワークフローが実行されるトリガー
+on:
+  # main, integ, devブランチへのプッシュ時
+  push:
+    branches: [ "main", "integ", "dev" ]
+  # GitHubの画面やAPIから手動で実行された時
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+    # 1. リポジトリのソースコードをチェックアウト (タグ履歴を取得するために全履歴を取得)
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # 2. Java Development Kit (JDK) 17をセットアップ
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    # 3. gradlewに実行権限を付与
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    # 4. (main / integブランチ時) 次のバージョン番号を計算
+    - name: Calculate next version
+      if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'integ')
+      id: calc_version
+      run: |
+        # 最新のGitタグを取得。タグがなければv1.0.0を基準にする
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
+        echo "Latest tag: $LATEST_TAG"
+        
+        # 'v'プレフィックスを除去してバージョン番号部分だけを取得
+        VERSION=${LATEST_TAG#v}
+        
+        # バージョンを MAJOR.MINOR.PATCH に分割
+        IFS='.' read -ra VERSION_PARTS <<< "$VERSION"
+        MAJOR=${VERSION_PARTS[0]}
+        MINOR=${VERSION_PARTS[1]}
+        PATCH=${VERSION_PARTS[2]}
+        
+        # ブランチ名に応じてバージョンを更新
+        if [[ "${{ github.ref_name }}" == "main" ]]; then
+          MINOR=$((MINOR + 1))
+          PATCH=0
+        elif [[ "${{ github.ref_name }}" == "integ" ]]; then
+          PATCH=$((PATCH + 1))
+        fi
+        
+        NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+        echo "Calculated new version: $NEW_VERSION"
+        
+        # 後続のステップで使えるように、計算したバージョン番号を環境変数に設定
+        echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+    # 5. (devブランチ / 手動実行時) 開発者向けデバッグビルド
+    - name: Build debug APK for developers
+      if: github.ref_name == 'dev' || github.event_name == 'workflow_dispatch'
+      run: ./gradlew assembleDebug -Ptarget=self
+
+    # 6. (main / integブランチ時) 配布用デバッグAPKをビルド
+    - name: Build debug APK for distribution
+      if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'integ')
+      run: ./gradlew assembleDebug -Ptarget=friends
+
+    # 7. (devブランチ / 手動実行時) デバッグAPKをArtifactsとしてアップロード
+    - name: Upload Debug APK as artifact
+      if: github.ref_name == 'dev' || github.event_name == 'workflow_dispatch'
+      uses: actions/upload-artifact@v4
+      with:
+        name: svwbrecord-debug-apk
+        path: app/build/outputs/apk/debug/app-debug.apk
+
+    # 8. (main / integブランチ時) GitHub Releaseを作成
+    - name: Create GitHub Release
+      if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'integ')
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.NEW_VERSION }}
+        release_name: Release ${{ env.NEW_VERSION }} (${{ github.ref_name }})
+        body: Auto-generated release from ${{ github.ref_name }} branch push.
+        draft: false
+        prerelease: ${{ github.ref_name == 'integ' }}
+
+    # 9. (main / integブランチ時) APKをReleaseにアップロード
+    - name: Upload APK asset to Release
+      if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'integ')
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: app/build/outputs/apk/debug/app-debug.apk
+        asset_name: svwbrecord-${{ env.NEW_VERSION }}.apk
+        asset_content_type: application/vnd.android.package-archive
+
