@@ -77,8 +77,9 @@ jobs:
 
       # 5. (devブランチ / 手動実行時) 開発者向けデバッグビルド
     - name: Build debug APK for developers
-      if: github.ref_name == 'dev' || github.event_name == 'workflow_dispatch'
+      if: github.ref_name == 'dev' || github.event_name == 'workflow_dispatch
       run: ./gradlew assembleDebug -Pandroid.injected.signing.store.file="${{ github.workspace }}/app/my-key.jks" -Pandroid.injected.signing.store.password="${{ secrets.MY_STORE_PASSWORD }}" -Pandroid.injected.signing.key.alias="${{ secrets.MY_KEY_ALIAS }}" -Pandroid.injected.signing.key.password="${{ secrets.MY_KEY_PASSWORD }}" -Ptarget=self
+
 
     # 6. (main / integブランチ時) 配布用デバッグAPKをビルド
     - name: Build debug APK for distribution
