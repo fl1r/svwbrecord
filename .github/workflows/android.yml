@@ -11,6 +11,8 @@ on:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     # 1. リポジトリのソースコードをチェックアウト (タグ履歴を取得するために全履歴を取得)
     - name: Checkout repository
@@ -56,7 +58,7 @@ jobs:
           PATCH=$((PATCH + 1))
         fi
         
-        NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+        NEW_VERSION=$(printf "v%s.%02d.%02d" "$MAJOR" "$MINOR" "$PATCH")
         echo "Calculated new version: $NEW_VERSION"
         
         # 後続のステップで使えるように、計算したバージョン番号を環境変数に設定
