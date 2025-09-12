@@ -467,10 +467,10 @@ public class OverlayService extends Service {
                     // --- 即時リトライまたは遅延リトライの継続 ---
                     try {
                         if (!isDelayedRetry) {
-                            mainThreadHandler.post(() -> Toast.makeText(getApplicationContext(), "記録に失敗、リトライします... (" + attemptCount + "/" + MAX_RETRIES + ")", Toast.LENGTH_SHORT).show());
+                            // mainThreadHandler.post(() -> Toast.makeText(getApplicationContext(), "記録に失敗、リトライします... (" + attemptCount + "/" + MAX_RETRIES + ")", Toast.LENGTH_SHORT).show());
                             Thread.sleep(IMMEDIATE_RETRY_DELAY_MS);
                         } else {
-                            mainThreadHandler.post(() -> Toast.makeText(getApplicationContext(), "バックグラウンドでリトライ中... (" + attemptCount + "/" + MAX_RETRIES + ")", Toast.LENGTH_SHORT).show());
+                            // mainThreadHandler.post(() -> Toast.makeText(getApplicationContext(), "バックグラウンドでリトライ中... (" + attemptCount + "/" + MAX_RETRIES + ")", Toast.LENGTH_SHORT).show());
                             Thread.sleep(IMMEDIATE_RETRY_DELAY_MS);
                         }
                         attemptToRecordWithRetries(sheetName, rowData, attemptCount + 1, isDelayedRetry);
