@@ -83,7 +83,7 @@ jobs:
     # 6. (main / integブランチ時) 配布用デバッグAPKをビルド
     - name: Build debug APK for distribution
       if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'integ')
-      run: ./gradlew assembleDebug -Pandroid.injected.signing.store.file="${{ github.workspace }}/app/my-key.jks" -Pandroid.injected.signing.store.password="${{ secrets.MY_STORE_PASSWORD }}" -Pandroid.injected.signing.key.alias="${{ secrets.MY_KEY_ALIAS }}" -Pandroid.injected.signing.key.password="${{ secrets.MY_KEY_PASSWORD }}" -Ptarget=friends
+      run: ./gradlew assembleDebug -PappVersionName=${{ env.NEW_VERSION }} -Pandroid.injected.signing.store.file="${{ github.workspace }}/app/my-key.jks" -Pandroid.injected.signing.store.password="${{ secrets.MY_STORE_PASSWORD }}" -Pandroid.injected.signing.key.alias="${{ secrets.MY_KEY_ALIAS }}" -Pandroid.injected.signing.key.password="${{ secrets.MY_KEY_PASSWORD }}" -Ptarget=friends
 
     # 7. (devブランチ / 手動実行時) デバッグAPKをArtifactsとしてアップロード
     - name: Upload Debug APK as artifact
