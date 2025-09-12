@@ -32,6 +32,14 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
+    - name: Configure gradle.properties for AndroidX
+      run: |
+        echo "android.useAndroidX=true" >> gradle.properties
+        echo "android.enableJetifier=true" >> gradle.properties
+        echo "MY_SPREADSHEET_ID_FOR_SELF=${{ secrets.MY_SPREADSHEET_ID_FOR_SELF }}" >> gradle.properties
+        echo "MY_SPREADSHEET_ID_FOR_FRIENDS=${{ secrets.MY_SPREADSHEET_ID_FOR_FRIENDS }}" >> gradle.properties
+        echo "SHARED_PASSWORD=${{ secrets.MY_PASSWORD }}" >> gradle.properties
+
     # 4. (main / integブランチ時) 次のバージョン番号を計算
     - name: Calculate next version
       if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'integ')
