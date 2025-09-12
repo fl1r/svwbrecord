@@ -73,17 +73,18 @@ jobs:
         echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
     - name: Decode and save signing key
-      run: echo "${{ secrets.MY_SIGNING_KEY }}" | base64 --decode > ${{ github.workspace }}/app/my-release-key.jks
+      run: echo "${{ secrets.MY_SIGNING_KEY }}" | base64 --decode > ${{ github.workspace }}/app/my-key.jks
 
       # 5. (devブランチ / 手動実行時) 開発者向けデバッグビルド
     - name: Build debug APK for developers
-      if: github.ref_name == 'dev' || github.event_name == 'workflow_dispatch'
-      run: ./gradlew assembleDebug -Pandroid.injected.signing.store.file="${{ github.workspace }}/app/my-release-key.jks" -Pandroid.injected.signing.store.password="${{ secrets.MY_STORE_PASSWORD }}" -Pandroid.injected.signing.key.alias="${{ secrets.MY_KEY_ALIAS }}" -Pandroid.injected.signing.key.password="${{ secrets.MY_KEY_PASSWORD }}" -Ptarget=self
+      if: github.ref_name == 'dev' || github.event_name == 'workflow_dispatch
+      run: ./gradlew assembleDebug -Pandroid.injected.signing.store.file="${{ github.workspace }}/app/my-key.jks" -Pandroid.injected.signing.store.password="${{ secrets.MY_STORE_PASSWORD }}" -Pandroid.injected.signing.key.alias="${{ secrets.MY_KEY_ALIAS }}" -Pandroid.injected.signing.key.password="${{ secrets.MY_KEY_PASSWORD }}" -Ptarget=self
+
 
     # 6. (main / integブランチ時) 配布用デバッグAPKをビルド
     - name: Build debug APK for distribution
       if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'integ')
-      run: ./gradlew assembleDebug -Pandroid.injected.signing.store.file="${{ github.workspace }}/app/my-release-key.jks" -Pandroid.injected.signing.store.password="${{ secrets.MY_STORE_PASSWORD }}" -Pandroid.injected.signing.key.alias="${{ secrets.MY_KEY_ALIAS }}" -Pandroid.injected.signing.key.password="${{ secrets.MY_KEY_PASSWORD }}" -Ptarget=friends
+      run: ./gradlew assembleDebug -PappVersionName=${{ env.NEW_VERSION }} -Pandroid.injected.signing.store.file="${{ github.workspace }}/app/my-key.jks" -Pandroid.injected.signing.store.password="${{ secrets.MY_STORE_PASSWORD }}" -Pandroid.injected.signing.key.alias="${{ secrets.MY_KEY_ALIAS }}" -Pandroid.injected.signing.key.password="${{ secrets.MY_KEY_PASSWORD }}" -Ptarget=friends
 
     # 7. (devブランチ / 手動実行時) デバッグAPKをArtifactsとしてアップロード
     - name: Upload Debug APK as artifact
