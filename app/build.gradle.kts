@@ -13,7 +13,7 @@ android {
         minSdk = 34
         targetSdk = 34
         versionCode = 1
-        versionName = "01.00.02"
+        versionName = project.hasProperty("appVersionName").toString()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

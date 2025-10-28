@@ -20,6 +20,8 @@ import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
+import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException;
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport; // Ensure this is imported
 import com.google.api.client.json.gson.GsonFactory;
@@ -53,6 +55,10 @@ public class OverlayService extends Service {
     private static final String KEY_DRAFT_TURN_ID = "draft_turn_id";
     private static final String KEY_DRAFT_WIN_LOSS_ID = "draft_win_loss_id";
 
+    private static final int MAX_RETRIES = 3;
+    private static final long IMMEDIATE_RETRY_DELAY_MS = 2000; // 2秒
+    private static final long DELAYED_RETRY_DELAY_MS = 3 * 60 * 1000; // 3分
+
     private WindowManager windowManager;
     private View overlayView;
 
@@ -77,6 +83,8 @@ public class OverlayService extends Service {
     private static final String SPREADSHEET_ID = BuildConfig.SPREADSHEET_ID;
     private GoogleAccountCredential credential;
     private String signedInAccountName;
+
+
 
     @Override
     public void onCreate() {
@@ -415,57 +423,107 @@ public class OverlayService extends Service {
         }
 
         final String sheetName = playerNameForSheet;
-        final String range = sheetName + "!A:F";
-
         final List<Object> rowData = Arrays.asList(recordDate, opponentRank, myDeck, turn, opponentDeck, winLoss);
 
-        prefs.edit().putString(KEY_LAST_USED_DECK, myDeck).apply();
-        Log.d(TAG, "Saved last used deck: " + myDeck);
+        // 最後に使ったデッキを保存
+        getSharedPreferences(MainActivity.PREFS_NAME, Context.MODE_PRIVATE).edit()
+                .putString(KEY_LAST_USED_DECK, myDeck).apply();
 
+        // ★リトライ処理を開始
+        attemptToRecordWithRetries(sheetName, rowData, 1, false);
+    }
+
+    /**
+     * リトライロジックを管理するメソッド
+     * @param sheetName 書き込み先のシート名
+     * @param rowData 書き込むデータ
+     * @param attemptCount 現在の試行回数
+     * @param isDelayedRetry 遅延リトライフェーズかどうか
+     */
+    private void attemptToRecordWithRetries(final String sheetName, final List<Object> rowData, final int attemptCount, final boolean isDelayedRetry) {
         executorService.execute(() -> {
             try {
-                HttpTransport httpTransport = new NetHttpTransport(); // MODIFIED HERE
-                Sheets sheetsService = new Sheets.Builder(httpTransport, GsonFactory.getDefaultInstance(), credential)
-                        .setApplicationName(getApplicationInfo().loadLabel(getPackageManager()).toString())
-                        .build();
+                // ★実際の書き込み処理を呼び出す
+                performSheetUpdate(sheetName, rowData);
 
-                // 手順①：A列を読み込んで、最初の空の行を探す (ヘッダーを考慮しA3から)
-                final String searchRange = sheetName + "!A3:A";
-                ValueRange response = sheetsService.spreadsheets().values().get(SPREADSHEET_ID, searchRange).execute();
-                List<List<Object>> values = response.getValues();
-
-                int targetRow = 3; // 開始行
-                if (values != null) {
-                    targetRow += values.size(); // データがある最後の行の次
-                }
-                Log.d(TAG, "Found first empty row at: " + targetRow);
-
-                // 手順②：見つけた行のA列からF列の範囲を更新する
-                final String updateRange = sheetName + "!A" + targetRow + ":F" + targetRow;
-                ValueRange body = new ValueRange().setValues(Arrays.asList(rowData));
-
-                sheetsService.spreadsheets().values()
-                        .update(SPREADSHEET_ID, updateRange, body)
-                        .setValueInputOption("USER_ENTERED")
-                        .execute();
-
+                // 成功した場合
                 mainThreadHandler.post(() -> {
                     Toast.makeText(getApplicationContext(), "対戦記録を保存しました！", Toast.LENGTH_SHORT).show();
-                    Log.d(TAG, "Match record successfully saved to Google Sheets using OAuth.");
+                    Log.d(TAG, "Match record successfully saved.");
                     clearDraftState();
                     stopSelf();
                 });
 
-            } catch (IOException e) {
-                Log.e(TAG, "IOException saving match record to spreadsheet with OAuth.", e);
-                mainThreadHandler.post(() -> Toast.makeText(getApplicationContext(), "記録保存IOエラー: " + e.getMessage(), Toast.LENGTH_LONG).show());
-            } catch (Exception e) { 
-                Log.e(TAG, "General Exception saving match record to spreadsheet with OAuth.", e);
+            } catch (UserRecoverableAuthIOException | GoogleJsonResponseException e) {
+                // ★リトライ不可能なエラー (認証やAPI権限の問題)
+                Log.e(TAG, "Unrecoverable API error.", e);
                 mainThreadHandler.post(() -> Toast.makeText(getApplicationContext(), "記録保存エラー(認証等): " + e.getMessage(), Toast.LENGTH_LONG).show());
+
+            } catch (IOException e) {
+                // ★リトライ可能なネットワークエラー
+                Log.w(TAG, "Network error on attempt " + attemptCount + " (isDelayed=" + isDelayedRetry + ")", e);
+
+                if (attemptCount < MAX_RETRIES) {
+                    // --- 即時リトライまたは遅延リトライの継続 ---
+                    try {
+                        if (!isDelayedRetry) {
+                            // mainThreadHandler.post(() -> Toast.makeText(getApplicationContext(), "記録に失敗、リトライします... (" + attemptCount + "/" + MAX_RETRIES + ")", Toast.LENGTH_SHORT).show());
+                            Thread.sleep(IMMEDIATE_RETRY_DELAY_MS);
+                        } else {
+                            // mainThreadHandler.post(() -> Toast.makeText(getApplicationContext(), "バックグラウンドでリトライ中... (" + attemptCount + "/" + MAX_RETRIES + ")", Toast.LENGTH_SHORT).show());
+                            Thread.sleep(IMMEDIATE_RETRY_DELAY_MS);
+                        }
+                        attemptToRecordWithRetries(sheetName, rowData, attemptCount + 1, isDelayedRetry);
+                    } catch (InterruptedException interruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
+                } else {
+                    if (!isDelayedRetry) {
+                        // --- 即時リトライが上限に達したので、遅延リトライへ移行 ---
+                        Log.w(TAG, "Immediate retries failed. Scheduling delayed retries.");
+                        mainThreadHandler.post(() -> Toast.makeText(getApplicationContext(), "ネットワークが不安定です。3分後にバックグラウンドで再試行します。", Toast.LENGTH_LONG).show());
+
+                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                            attemptToRecordWithRetries(sheetName, rowData, 1, true);
+                        }, DELAYED_RETRY_DELAY_MS);
+
+                    } else {
+                        // --- 全てのリトライが失敗 ---
+                        Log.e(TAG, "All retry attempts failed.", e);
+                        mainThreadHandler.post(() -> Toast.makeText(getApplicationContext(), "保存に失敗しました: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                    }
+                }
+            } catch (Exception e) {
+                // その他の予期せぬエラー
+                Log.e(TAG, "An unexpected error occurred during record attempt.", e);
+                mainThreadHandler.post(() -> Toast.makeText(getApplicationContext(), "予期せぬエラー: " + e.getMessage(), Toast.LENGTH_LONG).show());
             }
         });
+    }
 
-        stopSelf();
+    /**
+     * 実際にGoogle Sheetsへの書き込みを行うメソッド
+     */
+    private void performSheetUpdate(String sheetName, List<Object> rowData) throws IOException {
+        HttpTransport httpTransport = new NetHttpTransport();
+        Sheets sheetsService = new Sheets.Builder(httpTransport, GsonFactory.getDefaultInstance(), credential)
+                .setApplicationName(getApplicationInfo().loadLabel(getPackageManager()).toString())
+                .build();
+
+        // 最終行を探す
+        final String searchRange = sheetName + "!A3:A";
+        ValueRange response = sheetsService.spreadsheets().values().get(SPREADSHEET_ID, searchRange).execute();
+        List<List<Object>> values = response.getValues();
+        int targetRow = 3 + (values != null ? values.size() : 0);
+        Log.d(TAG, "Target row for update is: " + targetRow);
+
+        // データ書き込み
+        final String updateRange = sheetName + "!A" + targetRow + ":G" + targetRow;
+        ValueRange body = new ValueRange().setValues(Arrays.asList(rowData));
+        sheetsService.spreadsheets().values()
+                .update(SPREADSHEET_ID, updateRange, body)
+                .setValueInputOption("USER_ENTERED")
+                .execute();
     }
 
     private void clearDraftState() {
