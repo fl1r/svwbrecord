@@ -7,4 +7,13 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    
+    <!-- 勝敗ボタン用 (ユーザー設定: 勝ち=オレンジ/黄、負け=グレー/ダークブルー) -->
+    <color name="victory_orange">#FF9800</color>
+    <color name="victory_yellow">#FFEB3B</color>
+    <color name="defeat_gray">#607D8B</color>
+    <color name="defeat_dark_blue">#455A64</color>
+    
+    <!-- 取り消しボタン用 -->
+    <color name="undo_gray">#B0BEC5</color>
 </resources>

@@ -59,6 +59,9 @@ public class OverlayService extends Service {
     private static final long IMMEDIATE_RETRY_DELAY_MS = 2000; // 2秒
     private static final long DELAYED_RETRY_DELAY_MS = 3 * 60 * 1000; // 3分
 
+    private static final String KEY_LAST_RECORD_TIME = "last_record_time";
+    private static final long UNDOABLE_TIME_LIMIT_MS = 5 * 60 * 1000; // 5分以内なら取消可能
+
     private WindowManager windowManager;
     private View overlayView;
 
@@ -69,6 +72,7 @@ public class OverlayService extends Service {
     private RadioGroup winLossRadioGroup;
 
     private Button recordButton;
+    private Button undoButton;
 
     private ArrayAdapter<String> myDeckAdapter;
     private ArrayAdapter<String> opponentDeckAdapter;
@@ -153,6 +157,17 @@ public class OverlayService extends Service {
         turnRadioGroup = overlayView.findViewById(R.id.turn_radio_group);
         winLossRadioGroup = overlayView.findViewById(R.id.win_loss_radio_group);
         recordButton = overlayView.findViewById(R.id.record_button);
+        undoButton = overlayView.findViewById(R.id.undo_button);
+        if (undoButton != null) {
+            SharedPreferences prefs = getSharedPreferences(MainActivity.PREFS_NAME, Context.MODE_PRIVATE);
+            long lastTime = prefs.getLong(KEY_LAST_RECORD_TIME, 0);
+            if (System.currentTimeMillis() - lastTime < UNDOABLE_TIME_LIMIT_MS) {
+                undoButton.setVisibility(View.VISIBLE);
+                undoButton.setOnClickListener(v -> undoRecord());
+            } else {
+                undoButton.setVisibility(View.GONE);
+            }
+        }
 
         setupUIElements();
 
@@ -450,6 +465,11 @@ public class OverlayService extends Service {
                 mainThreadHandler.post(() -> {
                     Toast.makeText(getApplicationContext(), "対戦記録を保存しました！", Toast.LENGTH_SHORT).show();
                     Log.d(TAG, "Match record successfully saved.");
+                    
+                    // 取消用に時間を記録
+                    getSharedPreferences(MainActivity.PREFS_NAME, Context.MODE_PRIVATE).edit()
+                            .putLong(KEY_LAST_RECORD_TIME, System.currentTimeMillis()).apply();
+                            
                     clearDraftState();
                     stopSelf();
                 });
@@ -537,6 +557,63 @@ public class OverlayService extends Service {
 
         editor.apply();
         Log.d(TAG, "Draft state cleared, keeping my deck selection.");
+    }
+
+    private void undoRecord() {
+        Log.d(TAG, "undoRecord called.");
+        if (undoButton != null) undoButton.setEnabled(false);
+
+        SharedPreferences prefs = getSharedPreferences(MainActivity.PREFS_NAME, Context.MODE_PRIVATE);
+        String playerNameForSheet = prefs.getString(MainActivity.KEY_USERNAME, null);
+
+        if (playerNameForSheet == null || playerNameForSheet.isEmpty()) {
+            Toast.makeText(this, "プレイヤー名不明のため取消不可", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final String sheetName = playerNameForSheet;
+
+        executorService.execute(() -> {
+            try {
+                performUndoSheetUpdate(sheetName);
+                mainThreadHandler.post(() -> {
+                    Toast.makeText(getApplicationContext(), "直前の記録を取り消しました", Toast.LENGTH_SHORT).show();
+                    getSharedPreferences(MainActivity.PREFS_NAME, Context.MODE_PRIVATE).edit()
+                            .putLong(KEY_LAST_RECORD_TIME, 0).apply();
+                    if (undoButton != null) undoButton.setVisibility(View.GONE);
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error undoing record", e);
+                mainThreadHandler.post(() -> {
+                    Toast.makeText(getApplicationContext(), "取消失敗: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    if (undoButton != null) undoButton.setEnabled(true);
+                });
+            }
+        });
+    }
+
+    private void performUndoSheetUpdate(String sheetName) throws IOException {
+        HttpTransport httpTransport = new NetHttpTransport();
+        Sheets sheetsService = new Sheets.Builder(httpTransport, GsonFactory.getDefaultInstance(), credential)
+                .setApplicationName(getApplicationInfo().loadLabel(getPackageManager()).toString())
+                .build();
+
+        // 最終行を特定するためにデータを取得
+        final String searchRange = sheetName + "!A3:A";
+        ValueRange response = sheetsService.spreadsheets().values().get(SPREADSHEET_ID, searchRange).execute();
+        List<List<Object>> values = response.getValues();
+
+        if (values != null && !values.isEmpty()) {
+            int lastRowIndex = 3 + values.size() - 1; // 最終行の行番号
+            Log.d(TAG, "Undoing record at row: " + lastRowIndex);
+
+            // 最終行のデータをクリアする (deleteDimensionでも良いが、行自体を残す場合はクリア)
+            sheetsService.spreadsheets().values()
+                    .clear(SPREADSHEET_ID, sheetName + "!A" + lastRowIndex + ":G" + lastRowIndex, null)
+                    .execute();
+        } else {
+            throw new IOException("消去可能なデータが見つかりませんでした。");
+        }
     }
 
     @Override

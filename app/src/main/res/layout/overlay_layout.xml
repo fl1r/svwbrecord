@@ -3,7 +3,7 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="#AAFFFFFF"
+    android:background="#DDFFFFFF"
     android:padding="16dp">
 
     <!-- 自分のデッキ -->
@@ -12,7 +12,6 @@
         android:layout_height="wrap_content"
         android:text="自分のデッキ:"
         android:textSize="12sp"/>
-    <!-- ID変更: my_class_spinner -> my_deck_spinner -->
     <Spinner
         android:id="@+id/my_deck_spinner"
         android:layout_width="match_parent"
@@ -26,7 +25,6 @@
         android:text="相手のデッキ:"
         android:textSize="12sp"
         android:layout_marginTop="8dp"/>
-    <!-- ID変更: opponent_class_spinner -> opponent_deck_spinner -->
     <Spinner
         android:id="@+id/opponent_deck_spinner"
         android:layout_width="match_parent"
@@ -90,16 +88,24 @@
 
         <RadioButton
             android:id="@+id/radio_win"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="勝ち" />
+            android:layout_weight="1"
+            android:text="勝ち"
+            android:textColor="@color/victory_orange"
+            android:textStyle="bold"
+            android:buttonTint="@color/victory_orange" />
 
         <RadioButton
             android:id="@+id/radio_loss"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:text="負け" />
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="負け"
+            android:textColor="@color/defeat_gray"
+            android:textStyle="bold"
+            android:buttonTint="@color/defeat_gray" />
     </RadioGroup>
 
     <LinearLayout
@@ -107,6 +113,16 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="end">
+
+        <Button
+            android:id="@+id/undo_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:text="取消"
+            android:backgroundTint="@color/undo_gray"
+            android:textSize="12sp"
+            android:visibility="gone" />
 
         <Button
             android:id="@+id/close_button"
