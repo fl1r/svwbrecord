@@ -20,6 +20,10 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
+import android.os.PowerManager;
+
 public class GameWatchService extends Service {
 
     private static final String TAG = "GameWatchService";
@@ -41,6 +45,24 @@ public class GameWatchService extends Service {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Runnable runnable;
     private boolean isUiVisible = false;
+    private boolean isMonitoringEnabled = false;
+
+    private final BroadcastReceiver screenReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent == null) return;
+            String action = intent.getAction();
+            if (Intent.ACTION_SCREEN_OFF.equals(action)) {
+                Log.d(TAG, "Screen OFF detected. Pausing monitoring loop.");
+                pauseMonitoringLoop();
+            } else if (Intent.ACTION_SCREEN_ON.equals(action)) {
+                Log.d(TAG, "Screen ON detected. Resuming monitoring loop if enabled.");
+                if (isMonitoringEnabled) {
+                    resumeMonitoringLoop();
+                }
+            }
+        }
+    };
 
 
     // =================================================================================
@@ -53,6 +75,11 @@ public class GameWatchService extends Service {
         isRunning = true;
         Log.d(TAG, "Service onCreate, isRunning = true");
         createNotificationChannel();
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_SCREEN_ON);
+        filter.addAction(Intent.ACTION_SCREEN_OFF);
+        registerReceiver(screenReceiver, filter);
     }
 
     @Override
@@ -63,21 +90,15 @@ public class GameWatchService extends Service {
         if (intent != null) {
             String action = intent.getAction();
             if (ACTION_START_MONITORING.equals(action)) {
-                Log.d(TAG, "Received START_MONITORING action. Starting the handler loop.");
-                if (runnable != null) {
-                    handler.removeCallbacks(runnable);
-                }
-                runnable = () -> {
-                    checkForegroundApp();
-                    handler.postDelayed(runnable, 2000);
-                };
-                handler.post(runnable);
+                Log.d(TAG, "Received START_MONITORING action.");
+                isMonitoringEnabled = true;
+                resumeMonitoringLoop();
             } else if (ACTION_STOP_MONITORING.equals(action)) {
                 Log.d(TAG, "Received STOP_MONITORING action.");
+                isMonitoringEnabled = false;
                 stopSelf();
             } else if (ACTION_REFRESH_UI.equals(action)) {
                 Log.d(TAG, "Received REFRESH_UI action.");
-                // isUiVisibleを一度falseにして、次のチェックでUIが再表示されるようにする
                 isUiVisible = false;
             }
         }
@@ -95,10 +116,10 @@ public class GameWatchService extends Service {
     public void onDestroy() {
         isRunning = false;
         Log.d(TAG, "Service onDestroy, isRunning = false");
+        unregisterReceiver(screenReceiver);
         super.onDestroy();
-        if (runnable != null) {
-            handler.removeCallbacks(runnable);
-        }
+        isMonitoringEnabled = false;
+        pauseMonitoringLoop();
         hideGameNotification();
         stopService(new Intent(this, FloatingButtonService.class));
     }
@@ -113,6 +134,36 @@ public class GameWatchService extends Service {
     // =================================================================================
     // Core Logic Methods
     // =================================================================================
+
+    private void resumeMonitoringLoop() {
+        if (runnable != null) {
+            handler.removeCallbacks(runnable);
+        }
+        
+        // 画面がONの場合のみ即時開始
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        if (pm != null && !pm.isInteractive()) {
+            Log.d(TAG, "resumeMonitoringLoop called but screen is interactive=false. Skipping start.");
+            return;
+        }
+
+        runnable = new Runnable() {
+            @Override
+            public void run() {
+                checkForegroundApp();
+                handler.postDelayed(this, 2000);
+            }
+        };
+        handler.post(runnable);
+        Log.d(TAG, "Monitoring loop started/resumed.");
+    }
+
+    private void pauseMonitoringLoop() {
+        if (runnable != null) {
+            handler.removeCallbacks(runnable);
+            Log.d(TAG, "Monitoring loop paused.");
+        }
+    }
 
     private void checkForegroundApp() {
         UsageStatsManager usm = (UsageStatsManager) this.getSystemService(Context.USAGE_STATS_SERVICE);

@@ -95,6 +95,18 @@
 </section>
 
 <section>
+    <h2>バッテリー最適化 (Battery Optimization)</h2>
+    <p>
+        バックグラウンド監視によるバッテリー消費を抑えるため、以下の最適化を実装しています。
+    </p>
+    <ul>
+        <li><strong>画面オフ時の監視停止:</strong> <code>BroadcastReceiver</code> を使用して <code>ACTION_SCREEN_OFF</code> を検知し、CPU負荷の高いポーリングループを完全に停止します。</li>
+        <li><strong>画面オン時の自動再開:</strong> <code>ACTION_SCREEN_ON</code> 検知時にのみ監視を再開し、必要な時だけリソースを消費します。</li>
+        <li><strong>インタラクティブ判定:</strong> <code>PowerManager.isInteractive()</code> を併用し、不必要なタイミングでの処理開始を二重に防止しています。</li>
+    </ul>
+</section>
+
+<section>
     <h2>データの流れ (シーケンス)</h2>
     <div class="diagram">
         <div class="mermaid">
