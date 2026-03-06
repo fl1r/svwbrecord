@@ -61,9 +61,17 @@ public class FloatingButtonService extends Service {
         touchSlop = ViewConfiguration.get(this).getScaledTouchSlop();
     }
 
+    public static final String ACTION_STOP_FLOATING_BUTTON = "com.ppp.svwbrecord.ACTION_STOP_FLOATING_BUTTON";
+
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACTION_STOP_FLOATING_BUTTON.equals(intent.getAction())) {
+            Log.d(TAG, "Received STOP action. Stopping FloatingButtonService.");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
         Log.d(TAG, "onStartCommand called");
 
         if (intent != null && intent.hasExtra(MainActivity.KEY_SIGNED_IN_ACCOUNT_NAME)) {
@@ -105,6 +113,12 @@ public class FloatingButtonService extends Service {
             return START_NOT_STICKY;
         }
 
+        setupButtonListeners();
+
+        return START_NOT_STICKY;
+    }
+
+    private void setupButtonListeners() {
         simpleButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -119,7 +133,6 @@ public class FloatingButtonService extends Service {
                 } else {
                     Log.e(TAG, "Account name is missing. Cannot start OverlayService.");
                     Toast.makeText(FloatingButtonService.this, "アカウント情報がありません", Toast.LENGTH_SHORT).show();
-                    // ここで stopSelf() を呼ぶかは仕様による
                 }
             }
         });
@@ -194,18 +207,15 @@ public class FloatingButtonService extends Service {
                 return false; 
             }
         });
-
-        return START_NOT_STICKY;
     }
 
     @Override
     public void onDestroy() {
-        super.onDestroy();
         Log.d(TAG, "onDestroy called");
         if (windowManager != null && floatingButtonView != null) {
-            Log.d(TAG, "Removing floating button view from WindowManager.");
+            Log.d(TAG, "Removing floating button view from WindowManager (Immediate).");
             try {
-                windowManager.removeView(floatingButtonView);
+                windowManager.removeViewImmediate(floatingButtonView);
             } catch (Exception e) {
                 Log.e(TAG, "Error removing floatingButtonView: " + e.getMessage(), e);
             }
@@ -216,6 +226,7 @@ public class FloatingButtonService extends Service {
             longPressHandler.removeCallbacksAndMessages(null);
         }
         stopForeground(true);
+        super.onDestroy();
     }
 
     private void createNotificationChannel() {
