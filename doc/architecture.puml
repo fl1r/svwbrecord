@@ -1,0 +1,59 @@
+@startuml
+title Shadowverse WB Record - System Architecture
+
+package "UI Layer" {
+    class MainActivity {
+        - RadioGroup displayModeGroup
+        + onSignInSuccess()
+        + saveSettings()
+    }
+    class PasswordActivity {
+        - EditText passwordInput
+        + checkPassword()
+    }
+    class LauncherActivity {
+        + navigate()
+    }
+}
+
+package "Service Layer" {
+    class GameWatchService <<Service>> {
+        - UsageStatsManager usageStatsManager
+        - String targetPackage = "com.cygames.ShadowverseWB"
+        + checkForegroundApp()
+        - handleGameStart()
+        - handleGameStop()
+    }
+
+    class FloatingButtonService <<Service>> {
+        - WindowManager windowManager
+        - View floatingButtonView
+        + onTouch()
+        + startOverlay()
+    }
+
+    class OverlayService <<Service>> {
+        - WindowManager windowManager
+        - View overlayView
+        + submitToSheets()
+    }
+}
+
+package "Data Layer" {
+    class GoogleSheetsAPI {
+        + appendRow()
+    }
+    database SharedPreferences {
+        + MODE_NOTIFICATION
+        + MODE_FLOATING_BUTTON
+    }
+}
+
+MainActivity ..> SharedPreferences : saves mode
+GameWatchService ..> SharedPreferences : reads mode
+GameWatchService ..> FloatingButtonService : starts/stops
+GameWatchService ..> OverlayService : triggers (via Notification)
+FloatingButtonService ..> OverlayService : triggers (via Button)
+OverlayService ..> GoogleSheetsAPI : sends data
+
+@enduml
